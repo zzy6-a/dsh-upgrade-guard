@@ -1,0 +1,11 @@
+# dsh-upgrade-guard bundle 层：插入升级守卫插件行。
+- insert:
+    - id: dsh-upgrade-guard
+      name: 'dsh-upgrade-guard'
+      config:
+        # 自动重扫间隔（毫秒），0 = 只在启动/宿主版本变化/手动时扫描
+        autoScanMs: 0
+        # 是否启用宿主外 supervisor（崩溃救援/回滚/手动重启）
+        supervisor: true
+        # supervisor 是否为每个宿主版本保留快照（回滚用，单份约 300MB，保留最近 2 份）
+        snapshotHost: true

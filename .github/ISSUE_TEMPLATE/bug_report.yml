@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a problem with dsh-upgrade-guard
+title: '[Bug] '
+labels: [bug]
+body:
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH version
+      description: Output of `dsh --version`
+    validations:
+      required: true
+  - type: input
+    id: guard-version
+    attributes:
+      label: dsh-upgrade-guard version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS / environment
+      options:
+        - Linux
+        - macOS
+        - Windows (native)
+        - WSL 2
+        - DSH Desktop
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include logs from `~/.dsh/upgrade-guard/` when relevant.
+    validations:
+      required: true
