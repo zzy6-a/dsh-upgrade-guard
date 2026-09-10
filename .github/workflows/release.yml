@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (e.g. v0.1.0)
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -27,8 +33,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: dsh-upgrade-guard-*.tgz
           generate_release_notes: true
       - name: Publish to npm (optional)
-        if: env.NODE_AUTH_TOKEN != ''
+        if: env.NODE_AUTH_TOKEN
         run: npm publish --access public --provenance
