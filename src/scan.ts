@@ -39,6 +39,27 @@ export interface PluginReport {
   entryIds: string[]
   fiberPhase: string | null
   issues: ScanIssue[]
+  probe?: ProbeResult | null
+}
+
+export interface HygieneIssue {
+  level: 'error' | 'warning' | 'risk'
+  code: string
+  message: string
+  source?: string
+}
+
+export interface HygieneReport {
+  ok: boolean
+  checkedAt: string
+  source: string
+  issues: HygieneIssue[]
+}
+
+export interface ProbeResult {
+  status: 'ok' | 'failed' | 'error' | 'skipped'
+  message?: string
+  durationMs?: number
 }
 
 export interface ScanReport {
@@ -51,6 +72,8 @@ export interface ScanReport {
   counts: { ok: number; warning: number; risk: number; broken: number; disabled: number; unknown: number }
   plugins: PluginReport[]
   notes: string[]
+  hygiene?: HygieneReport | null
+  market?: { available: boolean; version: string | null; summary: Record<string, unknown> | null; checkedAt: string } | null
 }
 
 const FIBER_NAMES = ['pending', 'loading', 'active', 'failed', 'disposed', 'unloading']

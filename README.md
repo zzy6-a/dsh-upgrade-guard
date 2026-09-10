@@ -17,6 +17,9 @@
 - **升级后自动巡检**：宿主版本变化后的首次启动自动触发
 - **声明兼容性检查**：读取每个已安装插件的 `engines.dsh` 与 `peerDependencies`，与解析出的宿主/core 版本比对，沿用生态的方向性策略（低于下限、显式上界 = 风险；隐式 caret 上界 = 警告）
 - **安装/加载/结构检查**：Loader fiber 状态、悬空 junction、core 包遮蔽
+- **组合层卫生检查**：扫描 `cordis.patch.yml` 的重复 entry id / 失效 patch 目标，重复项可一键整理（改动前自动备份）
+- **插件自检 probe**：插件可声明 `dsh.compat.probe`，守卫在隔离子进程里执行并汇总通过/失败
+- **dshmarket 诊断接入**：检测到市场插件时自动合并其组合诊断（重复、失效、多版本、peer 不匹配）
 - **引导式修复**：联网找"与当前宿主兼容的最高版本"（不是盲目 `@latest`）→ 安装；不行则修复本地安装；再不行则禁用
 - **启动失败救援**：宿主外 supervisor 在主进程起不来时仍可工作：解析启动日志、禁用故障 entry、重启宿主
 - **宿主回滚**：禁用仍救不回来时，从快照直接启动上一个宿主版本，无需 sudo/npm
@@ -35,19 +38,43 @@
 
 运行数据在 `~/.dsh/upgrade-guard/`。
 
+### 组合卫生与插件自检
+
+- 每次巡检会检查 profile 的 `cordis.patch.yml`：重复的顶层 `- id:`、`dsh --dump-config` 报出的失效 patch 目标；面板顶部显示「组合诊断」，有重复项时提供「整理重复项」（保留最后一次，改动前备份）。
+- 如果本机装有 `dsh-market`，守卫会读取它的只读诊断接口并把重复/失效/多版本/peer 不匹配合并进同一块（市场不可用或需要授权时自动跳过，不影响巡检）。
+- 插件作者可以声明自检钩子，守卫会在独立 Node 子进程里执行（崩溃/超时不会影响宿主）：
+
+```json
+{
+  "dsh": {
+    "compat": {
+      "probe": { "file": "./lib/probe.js", "export": "probe", "timeoutMs": 20000 }
+    }
+  }
+}
+```
+
+```js
+// lib/probe.js —— ctx: { hostVersion, profile, dshHome, pluginDir }
+export async function probe(ctx) {
+  const ok = await checkSomethingAgainst(ctx.hostVersion)
+  return { ok, message: ok ? '正常' : '与当前宿主不兼容的原因' }
+}
+```
+
 ## 安装
 
 ### GitHub Release（当前分发通道）
 
 ```sh
 dsh plugin --profile web add \
-  https://github.com/zzy6-a/dsh-upgrade-guard/releases/download/v0.1.0/dsh-upgrade-guard-0.1.0.tgz
+  https://github.com/zzy6-a/dsh-upgrade-guard/releases/download/v0.2.0/dsh-upgrade-guard-0.2.0.tgz
 ```
 
 也可以从 Releases 页面下载 `.tgz` 后安装本地文件：
 
 ```sh
-dsh plugin --profile web add /path/to/dsh-upgrade-guard-0.1.0.tgz
+dsh plugin --profile web add /path/to/dsh-upgrade-guard-0.2.0.tgz
 ```
 
 ### npm（发布后可用）
@@ -94,6 +121,7 @@ dsh plugin --profile web add link:/path/to/dsh-upgrade-guard
 - **启用升级守卫**：软开关；关闭后不自动巡检/提醒，但保留插件、手动检查和 supervisor
 - **自动巡检**：默认每 5 分钟轻量检查一次
 - **当前状态** + **立即检查**
+- **组合诊断**：重复 entry / 失效 patch / 市场诊断摘要；重复项可一键整理
 - **卸载升级守卫**
 
 `cordis.patch.yml` 支持组合层默认配置：
@@ -116,6 +144,7 @@ dsh plugin --profile web add link:/path/to/dsh-upgrade-guard
 - `POST /dsh-upgrade-guard/api/toggle` `{ name, enabled }`
 - `POST /dsh-upgrade-guard/api/uninstall` `{ name, allowSelf? }`
 - `POST /dsh-upgrade-guard/api/config` `{ enabled?, autoScan? }`
+- `POST /dsh-upgrade-guard/api/patch-fix`（整理重复 patch entry，返回备份目录）
 - `POST /dsh-upgrade-guard/api/restart`
 - `POST /dsh-upgrade-guard/api/alert/ack` | `alert/ack-all`
 

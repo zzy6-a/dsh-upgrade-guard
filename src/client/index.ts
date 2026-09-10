@@ -25,6 +25,10 @@ const API = '/dsh-upgrade-guard/api'
 const REFRESH_MS = 8000
 
 interface Issue { level: string; code: string; message: string }
+interface HygieneIssue { level: string; code: string; message: string; source?: string }
+interface HygieneReport { ok?: boolean; checkedAt?: string; source?: string; issues?: HygieneIssue[] }
+interface MarketReport { available?: boolean; version?: string | null; summary?: Record<string, unknown> | null; checkedAt?: string }
+interface ProbeResult { status?: string; message?: string | null; durationMs?: number }
 interface PluginRow {
   name: string
   spec: string | null
@@ -37,6 +41,7 @@ interface PluginRow {
   requirement: string | null
   fiberPhase: string | null
   issues: Issue[]
+  probe?: ProbeResult | null
 }
 interface AlertAction { id: string; label: string; api: string; payload?: Record<string, unknown>; danger?: boolean }
 interface Alert { id: string; kind: string; severity: string; title: string; body: string; actions: AlertAction[] }
@@ -49,7 +54,7 @@ interface GuardState {
   hostVersion?: string | null
   baseline?: { hostVersion?: string | null; previousHostVersion?: string | null } | null
   counts?: Counts | null
-  lastScan?: { at?: string; trigger?: string; total?: number; plugins?: PluginRow[] } | null
+  lastScan?: { at?: string; trigger?: string; total?: number; plugins?: PluginRow[]; hygiene?: HygieneReport | null; market?: MarketReport | null } | null
   alerts?: Alert[]
   disabledByGuard?: DisabledRow[]
   supervisor?: { enabled?: boolean; pid?: number | null; running?: boolean; mode?: string | null; currentRuntime?: string | null }
@@ -119,6 +124,16 @@ const STYLE = `
 .cg-knob{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s ease;box-shadow:0 1px 2px rgba(0,0,0,.2)}
 .cg-switch.on .cg-knob{left:18px}
 .cg-msg{margin-top:10px;padding:8px 11px;border-radius:8px;background:var(--dsw-alias-bg-layer-2,rgba(0,0,0,.03));border:1px solid var(--dsw-alias-border-l1,#e6e6e6);white-space:pre-wrap;color:var(--dsw-alias-label-secondary,#555);font-size:12px}
+.cg-hygiene{margin:0 0 12px;padding:9px 11px;border:1px solid var(--dsw-alias-border-l1,#e6e6e6);border-radius:10px;background:var(--dsw-alias-bg-layer-2,rgba(0,0,0,.02))}
+.cg-hygiene-head{display:flex;align-items:center;gap:8px;min-width:0}
+.cg-hygiene-title{font-size:12px;font-weight:600}
+.cg-hygiene-item{font-size:11.5px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary,#666)}
+.cg-hygiene-item.error{color:var(--dsw-alias-state-error-primary,#d64545)}
+.cg-hygiene-item.warning{color:var(--dsw-alias-state-warn-primary,#d99a00)}
+.cg-hygiene-item.risk{color:var(--dsw-alias-state-error-primary,#d64545)}
+.cg-probe{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary,#888)}
+.cg-probe.ok{color:var(--dsw-alias-state-success-primary,#18a058)}
+.cg-probe.failed,.cg-probe.error{color:var(--dsw-alias-state-error-primary,#d64545)}
 .cgo-card{border:.5px solid var(--dsw-alias-border-l4,#e6e6e6);border-radius:16px;background:var(--dsw-alias-bg-layer-3,#fff);margin-bottom:10px;font-family:var(--dsw-font-family,system-ui,-apple-system,"Segoe UI",sans-serif);color:var(--dsw-alias-label-primary,#1a1a1a);overflow:hidden;transition:border-color .16s,background .16s;list-style:none}
 .cgo-card:hover{border-color:var(--dsw-alias-label-dimmed,#b5b5b5)}
 .cgo-card.cgo-open{background:var(--dsw-alias-bg-layer-2,#f7f7f7);border-color:var(--dsw-alias-label-dimmed,#b5b5b5)}
@@ -228,6 +243,7 @@ function PluginCard(props: { plugin: PluginRow; disabled: boolean; busy: boolean
     ? `声明：${plugin.requirement}`
     : '声明：未声明兼容范围（engines.dsh / peerDependencies）'
   const source = sourceLabel(plugin)
+  const probe = plugin.probe ?? null
   const footer: unknown[] = [
     h('span', { key: 'dot', className: `cg-dot ${plugin.status}` }),
     h('span', { key: 'state', className: `cg-state ${plugin.status}` }, STATUS_TEXT[plugin.status] ?? plugin.status),
@@ -283,7 +299,32 @@ function PluginCard(props: { plugin: PluginRow; disabled: boolean; busy: boolean
     source === '' ? null : h('div', { className: 'cg-src', title: source }, source),
     h('div', { className: 'cg-desc', title: description }, description),
     h('div', { className: 'cg-decl', title: declaration }, declaration),
+    probe === null ? null : h('div', { className: `cg-probe ${probe.status ?? ''}`, title: probe.message ?? undefined },
+      `自检：${probe.status === 'ok' ? '通过' : probe.status === 'failed' ? '未通过' : '执行失败'}${probe.message ? ` · ${probe.message}` : ''}`),
     h('div', { className: 'cg-foot' }, ...footer),
+  )
+}
+
+function HygieneBar(props: { hygiene: HygieneReport | null; market: MarketReport | null; busy: boolean; onAction: (path: string, body?: Record<string, unknown>) => void }): unknown {
+  const { hygiene, market, busy, onAction } = props
+  const issues = hygiene?.issues ?? []
+  const marketLine = market?.available === true ? `市场诊断 v${market.version ?? '?'}` : null
+  if (issues.length === 0 && marketLine === null) return null
+  const hasDuplicates = issues.some((item) => item.code === 'patch-duplicate' || item.code === 'duplicate-entry' || item.code === 'duplicate-name')
+  const top = issues.slice(0, 4)
+  return h('div', { className: 'cg-hygiene', key: 'hygiene' },
+    h('div', { className: 'cg-hygiene-head' },
+      h('span', { className: 'cg-hygiene-title' }, issues.length === 0 ? '组合诊断：正常' : `组合诊断：${issues.length} 项`),
+      marketLine === null ? null : h('span', { className: 'cg-tag' }, marketLine),
+      h('span', { className: 'cg-spacer' }),
+      hasDuplicates ? h('button', {
+        className: 'cg-btn mini ghost',
+        disabled: busy,
+        onClick: () => onAction('/patch-fix'),
+      }, '整理重复项') : null,
+    ),
+    ...top.map((item, index) => h('div', { key: `h${index}`, className: `cg-hygiene-item ${item.level}` }, item.message)),
+    issues.length > top.length ? h('div', { className: 'cg-sub' }, `…另有 ${issues.length - top.length} 项`) : null,
   )
 }
 
@@ -397,6 +438,7 @@ export function SettingsSection(): unknown {
       h('button', { className: 'cg-btn ghost', disabled: busy, onClick: () => act('/restart') }, '重启 DSH'),
       h('button', { className: 'cg-btn ghost', disabled: busy, onClick: () => act('/alert/ack-all') }, '清除提醒'),
     ),
+    h(HygieneBar, { key: 'hygiene', hygiene: state?.lastScan?.hygiene ?? null, market: state?.lastScan?.market ?? null, busy, onAction: act }),
     tabBar,
     h('div', { className: 'cg-grid', key: 'grid' },
       cards.length === 0 ? h('div', { className: 'cg-sub' }, '该分类下没有插件') : cards,

@@ -13,6 +13,7 @@ export interface GuardApi {
   enable(name: string): Promise<Record<string, unknown>>
   toggle(name: string, enabled: boolean): Promise<Record<string, unknown>>
   updateSoftConfig(patch: { enabled?: boolean; autoScan?: boolean }): Promise<Record<string, unknown>>
+  fixPatch(): Promise<Record<string, unknown>>
   uninstall(name: string, allowSelf?: boolean): Promise<Record<string, unknown>>
   restart(): Promise<Record<string, unknown>>
   openLog(): string
@@ -107,6 +108,11 @@ export function registerRoutes(hostCtx: any, paths: GuardPaths, api: GuardApi): 
       }
       if (method === 'POST' && sub === '/alert/ack-all') {
         sendJson(response, 200, { ok: true, acked: api.ackAll() })
+        return
+      }
+      if (method === 'POST' && sub === '/patch-fix') {
+        const result = await api.fixPatch()
+        sendJson(response, result.ok === true ? 200 : 500, result)
         return
       }
       if (method === 'POST' && sub === '/repair') {

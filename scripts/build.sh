@@ -18,6 +18,7 @@ echo "=== Compiling host (tsc $("$TSC" --version)) ==="
 echo "=== Copying supervisor asset ==="
 mkdir -p lib
 cp scripts/supervisor.mjs lib/supervisor.mjs
+cp scripts/probe-runner.mjs lib/probe-runner.mjs
 
 echo "=== Host build complete ==="
 ls -la lib/ 2>/dev/null | head

@@ -14,6 +14,9 @@ import {
   supervisorStatus,
 } from './supervisor-control.js'
 import { runScan, type ScanReport } from './scan.js'
+import { analyzePatchHygiene, fixPatchDuplicates } from './hygiene.js'
+import { runPluginProbes } from './probe.js'
+import { fetchMarketDiagnostics } from './market.js'
 import { registerRoutes, type GuardApi } from './api.js'
 
 export const name = 'dsh-upgrade-guard'
@@ -268,6 +271,19 @@ class Guard implements GuardApi {
     this.scanInFlight = (async () => {
       const entries = this.loaderEntries()
       const report = runScan(this.paths, trigger, entries as any[])
+      report.hygiene = await analyzePatchHygiene(this.paths)
+      const market = await fetchMarketDiagnostics(this.paths, this.webServerPort())
+      report.market = { available: market.available, version: market.version, summary: market.summary, checkedAt: market.checkedAt }
+      if (market.issues.length > 0) {
+        const seen = new Set(report.hygiene.issues.map((item) => `${item.code}:${item.message}`))
+        for (const item of market.issues) {
+          if (seen.has(`${item.code}:${item.message}`)) continue
+          seen.add(`${item.code}:${item.message}`)
+          report.hygiene.issues.push(item)
+        }
+        report.hygiene.ok = report.hygiene.issues.length === 0
+      }
+      await runPluginProbes(this.paths, report)
       if (trigger !== 'boot' || this.config.recordBootScans) pushScanHistory(this.state, report)
       this.state.lastScan = report
       saveState(this.paths, this.state)
@@ -357,6 +373,12 @@ class Guard implements GuardApi {
       dryRun: outcome.dryRun,
       report: outcome.report,
     }
+  }
+
+  async fixPatch(): Promise<Record<string, unknown>> {
+    const result = fixPatchDuplicates(this.paths)
+    const report = result.ok ? await this.check('manual') : this.state.lastScan
+    return { ...result, report }
   }
 
   async toggle(name: string, enabled: boolean): Promise<Record<string, unknown>> {

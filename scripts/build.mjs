@@ -16,4 +16,5 @@ const result = spawnSync(tsc, ['-p', 'tsconfig.json'], { cwd: root, stdio: 'inhe
 if (result.status !== 0) process.exit(result.status ?? 1)
 mkdirSync(join(root, 'lib'), { recursive: true })
 copyFileSync(join(root, 'scripts', 'supervisor.mjs'), join(root, 'lib', 'supervisor.mjs'))
+copyFileSync(join(root, 'scripts', 'probe-runner.mjs'), join(root, 'lib', 'probe-runner.mjs'))
 console.log('=== Host build complete (scripts/build.mjs) ===')

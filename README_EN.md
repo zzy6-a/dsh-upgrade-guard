@@ -17,6 +17,9 @@ English | [中文](README.md)
 - **Post-upgrade audit** — triggers automatically on the first boot after the host version changes.
 - **Declared compatibility checks** — reads each installed plugin's `engines.dsh` and `peerDependencies` against the resolved host/core versions, with the ecosystem's directional policy (below-min and explicit upper bounds are risks; implicit caret ceilings are warnings).
 - **Install/load/API surface checks** — Loader fiber state, dangling junctions, core-package shadowing.
+- **Patch hygiene** — duplicate top-level entry ids and stale patch targets in `cordis.patch.yml`, with a one-click dedupe (backed up first).
+- **Plugin probes** — plugins may declare `dsh.compat.probe`; the guard runs it in an isolated child process and reports pass/fail.
+- **dshmarket diagnostics** — when the market plugin is present, its read-only composition diagnostics (duplicates, stale targets, multi-version, peer mismatches) are merged into the same report.
 - **Guided remediation** — finds the *highest published version compatible with the current host* (not blindly `@latest`), installs it, otherwise repairs the local install, otherwise disables the plugin.
 - **Boot-failure rescue** — an **out-of-host supervisor** survives a host that fails to start: it parses the boot log, disables the failing loader entry, and relaunches.
 - **Host rollback** — if disabling is not enough, the supervisor starts the previous host version from a snapshot. No `sudo`, no npm.
@@ -35,19 +38,43 @@ Three parts, one package:
 
 State lives under `~/.dsh/upgrade-guard/`.
 
+### Patch hygiene and plugin probes
+
+- Each audit checks the profile `cordis.patch.yml` for duplicate top-level `- id:` entries and stale patch targets reported by `dsh --dump-config`; the panel shows a "composition diagnostics" block with a dedupe action (keeps the last entry, backs up first).
+- If `dsh-market` is installed, the guard reads its read-only diagnostics endpoint and merges duplicates / stale targets / multi-version / peer mismatches into the same block. An unavailable or unauthorized market is skipped without affecting the audit.
+- Plugin authors can declare an optional probe; it runs in a detached Node child so a crash or timeout cannot take down the host:
+
+```json
+{
+  "dsh": {
+    "compat": {
+      "probe": { "file": "./lib/probe.js", "export": "probe", "timeoutMs": 20000 }
+    }
+  }
+}
+```
+
+```js
+// lib/probe.js — ctx: { hostVersion, profile, dshHome, pluginDir }
+export async function probe(ctx) {
+  const ok = await checkSomethingAgainst(ctx.hostVersion)
+  return { ok, message: ok ? 'ok' : 'why it is incompatible' }
+}
+```
+
 ## Install
 
 ### GitHub Release (current channel)
 
 ```sh
 dsh plugin --profile web add \
-  https://github.com/zzy6-a/dsh-upgrade-guard/releases/download/v0.1.0/dsh-upgrade-guard-0.1.0.tgz
+  https://github.com/zzy6-a/dsh-upgrade-guard/releases/download/v0.2.0/dsh-upgrade-guard-0.2.0.tgz
 ```
 
 Or download the `.tgz` from the Releases page and install the local file:
 
 ```sh
-dsh plugin --profile web add /path/to/dsh-upgrade-guard-0.1.0.tgz
+dsh plugin --profile web add /path/to/dsh-upgrade-guard-0.2.0.tgz
 ```
 
 ### npm (once published)
@@ -116,6 +143,7 @@ Loopback and same-origin guarded:
 - `POST /dsh-upgrade-guard/api/toggle` `{ name, enabled }`
 - `POST /dsh-upgrade-guard/api/uninstall` `{ name, allowSelf? }`
 - `POST /dsh-upgrade-guard/api/config` `{ enabled?, autoScan? }`
+- `POST /dsh-upgrade-guard/api/patch-fix` (dedupe patch entries; returns the backup dir)
 - `POST /dsh-upgrade-guard/api/restart`
 - `POST /dsh-upgrade-guard/api/alert/ack` | `alert/ack-all`
 

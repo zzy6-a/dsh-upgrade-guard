@@ -1,6 +1,6 @@
 {
   "name": "dsh-upgrade-guard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DSH upgrade guard: audits installed plugin compatibility after each DeepSeek Harness upgrade, repairs or disables where possible, and an out-of-host supervisor rescues boot failures or rolls back to the previous host snapshot.",
   "license": "MIT",
   "type": "module",
