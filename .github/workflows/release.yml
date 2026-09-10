@@ -36,6 +36,5 @@ jobs:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: dsh-upgrade-guard-*.tgz
           generate_release_notes: true
-      - name: Publish to npm (optional)
-        if: env.NODE_AUTH_TOKEN
-        run: npm publish --access public --provenance
+      # npm publishing is manual until registry access + NPM_TOKEN are configured:
+      #   npm publish --access public
