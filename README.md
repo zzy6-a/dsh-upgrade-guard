@@ -35,14 +35,28 @@ State lives under `~/.dsh/upgrade-guard/`.
 
 ## Install
 
+### GitHub Release (current channel)
+
 ```sh
-# from npm (recommended)
-dsh plugin --profile web add dsh-upgrade-guard
+dsh plugin --profile web add \
+  https://github.com/zzy6-a/dsh-upgrade-guard/releases/download/v0.1.0/dsh-upgrade-guard-0.1.0.tgz
+```
 
-# from a release tarball
+Or download the `.tgz` from the Releases page and install the local file:
+
+```sh
 dsh plugin --profile web add /path/to/dsh-upgrade-guard-0.1.0.tgz
+```
 
-# from a local checkout (development)
+### npm (once published)
+
+```sh
+dsh plugin --profile web add dsh-upgrade-guard
+```
+
+### Local checkout (development)
+
+```sh
 dsh plugin --profile web add link:/path/to/dsh-upgrade-guard
 ```
 

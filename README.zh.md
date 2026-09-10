@@ -35,14 +35,28 @@
 
 ## 安装
 
+### GitHub Release（当前分发通道）
+
 ```sh
-# npm（推荐）
-dsh plugin --profile web add dsh-upgrade-guard
+dsh plugin --profile web add \
+  https://github.com/zzy6-a/dsh-upgrade-guard/releases/download/v0.1.0/dsh-upgrade-guard-0.1.0.tgz
+```
 
-# 从 Release 包
+也可以从 Releases 页面下载 `.tgz` 后安装本地文件：
+
+```sh
 dsh plugin --profile web add /path/to/dsh-upgrade-guard-0.1.0.tgz
+```
 
-# 从本地源码（开发）
+### npm（发布后可用）
+
+```sh
+dsh plugin --profile web add dsh-upgrade-guard
+```
+
+### 本地源码（开发）
+
+```sh
 dsh plugin --profile web add link:/path/to/dsh-upgrade-guard
 ```
 
