@@ -1,112 +1,114 @@
 # dsh-upgrade-guard
 
+[English](README_EN.md) | 中文
+
 [![npm](https://img.shields.io/npm/v/dsh-upgrade-guard)](https://www.npmjs.com/package/dsh-upgrade-guard)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-2f6fed)](https://github.com/topics/dsh-plugin)
 
-**A safety net for DeepSeek Harness upgrades.**
+**DeepSeek Harness 升级安全网。**
 
-`dsh-upgrade-guard` watches the DSH host version. When it changes, the guard audits every installed plugin against the new host, then (with your confirmation) repairs, updates, disables, or rolls the host back — so a single incompatible community plugin cannot leave you with a harness that refuses to boot.
+`dsh-upgrade-guard` 监视 DSH 宿主版本。升级后首次启动时，它会检查所有已安装插件与新宿主的兼容性，并在你确认后升级、修复、禁用插件，或在必要时回滚到上一个宿主版本——避免一个不兼容的社区插件把整个 harness 留在"起不来"的状态。
 
-> DSH is in developer preview and ships compatibility-breaking changes. This plugin exists because that is the expected failure mode, not an edge case.
+> DSH 处于开发者预览阶段，破坏性变更会持续发生。这个插件针对的是预期内的失败，而不是边缘情况。
 
-## Features
+## 功能
 
-- **Post-upgrade audit** — triggers automatically on the first boot after the host version changes.
-- **Declared compatibility checks** — reads each installed plugin's `engines.dsh` and `peerDependencies` against the resolved host/core versions, with the ecosystem's directional policy (below-min and explicit upper bounds are risks; implicit caret ceilings are warnings).
-- **Install/load/API surface checks** — Loader fiber state, dangling junctions, core-package shadowing.
-- **Guided remediation** — finds the *highest published version compatible with the current host* (not blindly `@latest`), installs it, otherwise repairs the local install, otherwise disables the plugin.
-- **Boot-failure rescue** — an **out-of-host supervisor** survives a host that fails to start: it parses the boot log, disables the failing loader entry, and relaunches.
-- **Host rollback** — if disabling is not enough, the supervisor starts the previous host version from a snapshot. No `sudo`, no npm.
-- **Manual restart** — restart DSH from the settings panel or the alert card.
-- **Bilingual UI / notifications** — audit results, incidents, and actions appear in the DSH settings section and in overlay alerts.
+- **升级后自动巡检**：宿主版本变化后的首次启动自动触发
+- **声明兼容性检查**：读取每个已安装插件的 `engines.dsh` 与 `peerDependencies`，与解析出的宿主/core 版本比对，沿用生态的方向性策略（低于下限、显式上界 = 风险；隐式 caret 上界 = 警告）
+- **安装/加载/结构检查**：Loader fiber 状态、悬空 junction、core 包遮蔽
+- **引导式修复**：联网找"与当前宿主兼容的最高版本"（不是盲目 `@latest`）→ 安装；不行则修复本地安装；再不行则禁用
+- **启动失败救援**：宿主外 supervisor 在主进程起不来时仍可工作：解析启动日志、禁用故障 entry、重启宿主
+- **宿主回滚**：禁用仍救不回来时，从快照直接启动上一个宿主版本，无需 sudo/npm
+- **手动重启**：设置面板 / 弹窗里一键重启 DSH
+- **中文界面与通知**：巡检结果、事故、操作项展示在设置页与浮层弹窗
 
-## How it works
+## 工作原理
 
-Three parts, one package:
+一个包，三部分：
 
-| Part | Where | Responsibility |
+| 部分 | 位置 | 职责 |
 | --- | --- | --- |
-| Host plugin | DSH profile bundle | Version baseline, scans, remediation, HTTP API, settings namespace |
-| Client UI | DSH web client | Settings panel, plugin cards, status switches, overlay alerts |
-| Supervisor | detached Node process | Adopts the host, snapshots host versions, rescues crashes, rolls back, performs restarts |
+| 宿主插件 | DSH profile bundle | 版本基线、扫描、修复链、HTTP API、settings 命名空间 |
+| 客户端 UI | DSH Web 客户端 | 设置页面板、插件卡片、开关、浮层弹窗 |
+| Supervisor | 独立 Node 进程 | adopt 宿主、快照宿主版本、崩溃救援、回滚、执行重启 |
 
-State lives under `~/.dsh/upgrade-guard/`.
+运行数据在 `~/.dsh/upgrade-guard/`。
 
-## Install
+## 安装
 
-### GitHub Release (current channel)
+### GitHub Release（当前分发通道）
 
 ```sh
 dsh plugin --profile web add \
   https://github.com/zzy6-a/dsh-upgrade-guard/releases/download/v0.1.0/dsh-upgrade-guard-0.1.0.tgz
 ```
 
-Or download the `.tgz` from the Releases page and install the local file:
+也可以从 Releases 页面下载 `.tgz` 后安装本地文件：
 
 ```sh
 dsh plugin --profile web add /path/to/dsh-upgrade-guard-0.1.0.tgz
 ```
 
-### npm (once published)
+### npm（发布后可用）
 
 ```sh
 dsh plugin --profile web add dsh-upgrade-guard
 ```
 
-### Local checkout (development)
+### 本地源码（开发）
 
 ```sh
 dsh plugin --profile web add link:/path/to/dsh-upgrade-guard
 ```
 
-Then restart DSH once (`设置 → 升级守卫 → 重启 DSH`, or your usual launcher). The guard mounts as a profile bundle and keeps itself loaded on later boots.
+然后重启一次 DSH（设置 → 升级守卫 → 重启 DSH，或用你的启动器）。之后守卫作为 profile bundle 常驻。
 
-## What happens after a host upgrade
+## 宿主升级后会发什么
 
-1. The guard compares the current host version with the recorded baseline.
-2. Every installed community/local plugin is audited.
-3. If nothing is risky, a short notification confirms the upgrade.
-4. If something is risky, an alert lists the plugin, the reason, and suggested actions.
-5. After confirmation the remediation chain runs, with a backup before every change:
-   - install the highest host-compatible version, else
-   - repair the local install (`pnpm install`, rebuild when declared), else
-   - write a `disabled` override into `cordis.patch.yml` (recoverable from the panel).
-6. Changes that need a restart are reported with a one-click restart.
+1. 对比当前宿主版本与上次记录的版本
+2. 审计所有已安装的社区/本地插件
+3. 无风险：轻提示"升级后兼容检查通过"
+4. 有风险：弹窗列出插件、原因、建议动作
+5. 确认后执行修复链，每一步改动前都自动备份：
+   - 安装与当前宿主兼容的最高版本；否则
+   - 修复本地安装（`pnpm install`、有构建脚本则重建）；否则
+   - 在 `cordis.patch.yml` 写入 `disabled` 覆盖行（可在面板恢复）
+6. 需要重启生效的改动会附一键重启
 
-## Boot-failure rescue and rollback
+## 启动失败救援与回滚
 
-If the tree fails to load, no host-side plugin can help — that is what the detached supervisor is for:
+如果插件树加载失败，任何宿主内插件都救不了——这时由宿主外 supervisor 兜底：
 
-- It reads recent boot output and looks for `failed to apply loader entry <entry> (<package>)`.
-- It maps the package to loader entry ids using `dsh --dump-config` (read-only), backs up the patch file, writes `disabled: true`, and relaunches.
-- If that still fails, or the failure is not attributable to a plugin, it launches the previous host version from `~/.dsh/upgrade-guard/host-snapshots/<version>/` and reports the rollback.
-- Every action is recorded under `incidents/` and surfaced in the UI on the next successful boot.
+- 读取最近的启动日志，匹配 `failed to apply loader entry <entry> (<package>)`
+- 用 `dsh --dump-config`（只读）把包名映射成 entry id，备份 patch，写入 `disabled: true`，重启
+- 仍失败或无法归因到插件：从 `~/.dsh/upgrade-guard/host-snapshots/<version>/` 启动上一个宿主版本，并记录回滚
+- 所有动作写入 `incidents/`，下次成功启动后由插件弹窗展示
 
-Snapshots are full copies of the host package directory (~300 MB each, latest two kept).
+快照是宿主目录的完整拷贝（每份约 300MB，保留最近 2 份）。
 
-## Settings
+## 设置
 
-In **Settings → Plugins → Plugin configuration** the guard exposes a card with:
+**设置 → 插件 → 插件配置** 里的升级守卫卡片：
 
-- **Enable upgrade guard** — soft switch: disables automatic audits and alerts while keeping the plugin, manual checks, and the supervisor.
-- **Automatic audit** — periodic lightweight scan (default every 5 minutes).
-- **Current status** and **Check now**.
-- **Uninstall upgrade guard**.
+- **启用升级守卫**：软开关；关闭后不自动巡检/提醒，但保留插件、手动检查和 supervisor
+- **自动巡检**：默认每 5 分钟轻量检查一次
+- **当前状态** + **立即检查**
+- **卸载升级守卫**
 
-`cordis.patch.yml` accepts the composition-layer defaults:
+`cordis.patch.yml` 支持组合层默认配置：
 
 ```yaml
 - id: dsh-upgrade-guard
   config:
-    autoScanMs: 0        # periodic scan interval, 0 = only on boot/upgrade/manual
-    supervisor: true     # out-of-host rescue / rollback / restart
-    snapshotHost: true   # keep host snapshots for rollback
+    autoScanMs: 0        # 自动扫描间隔（毫秒），0 = 仅启动/升级/手动
+    supervisor: true     # 宿主外救援 / 回滚 / 重启
+    snapshotHost: true   # 保留宿主快照用于回滚
 ```
 
 ## HTTP API
 
-Loopback and same-origin guarded:
+仅限本机同源：
 
 - `GET  /dsh-upgrade-guard/api/state`
 - `POST /dsh-upgrade-guard/api/check`
@@ -117,37 +119,37 @@ Loopback and same-origin guarded:
 - `POST /dsh-upgrade-guard/api/restart`
 - `POST /dsh-upgrade-guard/api/alert/ack` | `alert/ack-all`
 
-## Requirements
+## 环境要求
 
 - DSH `>= 0.1.5-rc.1`
 - Node.js `>= 22.19`
-- Web profile for the UI features (audits still work in other profiles)
+- UI 功能需要 Web profile（其他 profile 仍可执行巡检）
 
 ### Windows
 
-- Works on native Windows and WSL 2 (DSH has no OS restriction; the official development guide documents both).
-- The guard uses Node APIs only, hides spawned consoles (`windowsHide`), and kills process trees with `taskkill /PID <pid> /T /F` when restarting.
-- Electron/DSH Desktop hosts own their lifecycle: the guard skips the supervisor and the restart button points you at the desktop shell.
-- Windows behavior has had a compatibility pass but not a full native test run; please report issues with logs from `~/.dsh/upgrade-guard/`.
+- 原生 Windows 与 WSL 2 都可用（DSH 官方开发文档两种都支持）
+- 守卫只用 Node API；拉起进程加了 `windowsHide`；Windows 下重启用 `taskkill /PID <pid> /T /F` 杀进程树
+- Electron / DSH Desktop 宿主由桌面外壳管理生命周期：守卫跳过 supervisor，重启按钮会提示你使用桌面应用
+- Windows 做了代码层兼容，但未做完整实机验证；遇到问题请附 `~/.dsh/upgrade-guard/` 日志提 issue
 
-## Development
+## 开发
 
 ```sh
 npm install
 npm run typecheck
 npm test
-npm run build        # host: tsc -> lib, client: tsdown -> lib/client.js
-npm pack             # produces dsh-upgrade-guard-<version>.tgz
+npm run build        # host: tsc -> lib，client: tsdown -> lib/client.js
+npm pack             # 产出 dsh-upgrade-guard-<version>.tgz
 ```
 
-The supervisor source is `scripts/supervisor.mjs`; it is copied into `lib/` during build.
+Supervisor 源码在 `scripts/supervisor.mjs`，构建时复制进 `lib/`。
 
-## Safety and limitations
+## 安全与边界
 
-- The guard **changes files**: `cordis.patch.yml`, and it runs package-manager commands during remediation. Every write is backed up first under `~/.dsh/upgrade-guard/backups/`.
-- It **does not intercept host upgrades**, and it does not patch plugin source code. If no compatible release exists, it can only disable or roll back.
-- Plugins that declare no compatibility metadata cannot be predicted; the guard falls back to runtime rescue.
-- This is an independent community project, not an official DeepSeek product.
+- 守卫**会修改文件**：`cordis.patch.yml`，修复过程中会调用包管理器命令；每次写入前都备份到 `~/.dsh/upgrade-guard/backups/`
+- **不拦截宿主升级**，也不修改插件源码；没有兼容版本时只能禁用或回滚
+- 未声明兼容信息的插件无法提前判定，只能运行期兜底
+- 这是一个独立社区项目，不是 DeepSeek 官方产品
 
 ## License
 
