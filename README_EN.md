@@ -2,7 +2,7 @@
 
 English | [中文](README.md)
 
-[![npm](https://img.shields.io/npm/v/dsh-upgrade-guard)](https://www.npmjs.com/package/dsh-upgrade-guard)
+[![Download](https://img.shields.io/badge/Download-latest-2e7d32?style=flat&logo=github&logoColor=white)](https://github.com/zzy6-a/dsh-upgrade-guard/releases/latest)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-2f6fed)](https://github.com/topics/dsh-plugin)
 
@@ -150,6 +150,11 @@ The supervisor source is `scripts/supervisor.mjs`; it is copied into `lib/` duri
 - It **does not intercept host upgrades**, and it does not patch plugin source code. If no compatible release exists, it can only disable or roll back.
 - Plugins that declare no compatibility metadata cannot be predicted; the guard falls back to runtime rescue.
 - This is an independent community project, not an official DeepSeek product.
+
+## Contributors
+
+- [zzy6-a](https://github.com/zzy6-a) — author
+- DeepSeek V4.1 — architecture, implementation, testing, and release workflow
 
 ## License
 
