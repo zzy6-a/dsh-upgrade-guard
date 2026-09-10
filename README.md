@@ -2,7 +2,7 @@
 
 [English](README_EN.md) | 中文
 
-[![npm](https://img.shields.io/npm/v/dsh-upgrade-guard)](https://www.npmjs.com/package/dsh-upgrade-guard)
+[![Download](https://img.shields.io/badge/Download-latest-2e7d32?style=flat&logo=github&logoColor=white)](https://github.com/zzy6-a/dsh-upgrade-guard/releases/latest)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-2f6fed)](https://github.com/topics/dsh-plugin)
 
@@ -150,6 +150,11 @@ Supervisor 源码在 `scripts/supervisor.mjs`，构建时复制进 `lib/`。
 - **不拦截宿主升级**，也不修改插件源码；没有兼容版本时只能禁用或回滚
 - 未声明兼容信息的插件无法提前判定，只能运行期兜底
 - 这是一个独立社区项目，不是 DeepSeek 官方产品
+
+## Contributors / 致谢
+
+- [zzy6-a](https://github.com/zzy6-a) — 作者
+- DeepSeek V4.1 — 架构设计、实现、测试与发布流程
 
 ## License
 
