@@ -6,7 +6,7 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-2f6fed)](https://github.com/topics/dsh-plugin)
 
-**DeepSeek Harness 升级安全网。**
+**DeepSeek Harness 兼容卫士。**
 
 `dsh-upgrade-guard` 监视 DSH 宿主版本。升级后首次启动时，它会检查所有已安装插件与新宿主的兼容性，并在你确认后升级、修复、禁用插件，或在必要时回滚到上一个宿主版本——避免一个不兼容的社区插件把整个 harness 留在"起不来"的状态。
 

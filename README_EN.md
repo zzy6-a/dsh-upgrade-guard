@@ -6,7 +6,7 @@ English | [中文](README.md)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-2f6fed)](https://github.com/topics/dsh-plugin)
 
-**A safety net for DeepSeek Harness upgrades.**
+**A compatibility guard for DeepSeek Harness upgrades.**
 
 `dsh-upgrade-guard` watches the DSH host version. When it changes, the guard audits every installed plugin against the new host, then (with your confirmation) repairs, updates, disables, or rolls the host back — so a single incompatible community plugin cannot leave you with a harness that refuses to boot.
 
